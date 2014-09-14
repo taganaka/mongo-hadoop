@@ -55,8 +55,7 @@ public class MongoInputSplit extends InputSplit implements Writable, org.apache.
     protected boolean notimeout = false;
     protected transient DBCursor cursor;
 
-    protected static transient BSONEncoder _bsonEncoder = new BasicBSONEncoder();
-    protected static transient BSONDecoder _bsonDecoder = new BasicBSONDecoder();
+    
     //CHECKSTYLE:ON
 
     public MongoInputSplit() {
@@ -168,7 +167,8 @@ public class MongoInputSplit extends InputSplit implements Writable, org.apache.
                                               .add("max", getMax())
                                               .add("notimeout", getNoTimeout())
                                               .get();
-        byte[] buf = _bsonEncoder.encode(spec);
+        final BSONEncoder bsonEncoder = new BasicBSONEncoder();
+        byte[] buf = bsonEncoder.encode(spec);
         out.write(buf);
     }
 
@@ -182,8 +182,10 @@ public class MongoInputSplit extends InputSplit implements Writable, org.apache.
         byte[] data = new byte[dataLen + 4];
         System.arraycopy(l, 0, data, 0, 4);
         in.readFully(data, 4, dataLen - 4);
-        _bsonDecoder.decode(data, cb);
+        final BSONDecoder bsonDecoder = new BasicBSONDecoder();
+        bsonDecoder.decode(data, cb);
         spec = (BSONObject) cb.get();
+
         setInputURI(new MongoClientURI((String) spec.get("inputURI")));
 
         if (spec.get("authURI") != null) {
