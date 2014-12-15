@@ -71,11 +71,11 @@ public class StandaloneMongoSplitter extends MongoCollectionSplitter {
 
         LOG.info("Running splitvector to check splits against " + inputURI);
         final DBObject cmd = BasicDBObjectBuilder.start("splitVector", ns)
-                                 .add("keyPattern", splitKey)
-                                      // force:True is misbehaving it seems
-                                 .add("force", false)
-                                 .add("maxChunkSize", splitSize)
-                                 .get();
+                .add("keyPattern", splitKey)
+                        // force:True is misbehaving it seems
+                .add("force", false)
+                .add("maxChunkSize", splitSize)
+                .get();
 
         CommandResult data;
         boolean ok = true;
@@ -107,14 +107,15 @@ public class StandaloneMongoSplitter extends MongoCollectionSplitter {
             CommandResult stats = inputCollection.getStats();
             if (stats.containsField("primary")) {
                 DBCursor shards = inputCollection.getDB().getSisterDB("config")
-                                                 .getCollection("shards")
-                                                 .find(new BasicDBObject("_id", stats.getString("primary")));
+                        .getCollection("shards")
+                        .find(new BasicDBObject("_id", stats.getString("primary")));
                 try {
                     if (shards.hasNext()) {
                         DBObject shard = shards.next();
+                        String host = ((String) shard.get("host")).replace(shard.get("_id") + "/", "");
                         MongoClientURI shardHost = new MongoClientURIBuilder(inputURI)
-                                                       .host((String) shard.get("host"))
-                                                       .build();
+                                .host(host)
+                                .build();
                         MongoClient shardClient = null;
                         try {
                             shardClient = new MongoClient(shardHost);
@@ -131,7 +132,7 @@ public class StandaloneMongoSplitter extends MongoCollectionSplitter {
                     shards.close();
                 }
             }
-            if (!data.get("ok").equals(1.0)) {
+            if (data != null && !data.get("ok").equals(1.0)) {
                 throw new SplitFailedException("Unable to calculate input splits: " + data.get("errmsg"));
             }
 
@@ -143,15 +144,14 @@ public class StandaloneMongoSplitter extends MongoCollectionSplitter {
 
         if (splitData.size() == 0) {
             LOG.warn("WARNING: No Input Splits were calculated by the split code. Proceeding with a *single* split. Data may be too"
-                     + " small, try lowering 'mongo.input.split_size' if this is undesirable.");
+                    + " small, try lowering 'mongo.input.split_size' if this is undesirable.");
         }
 
         BasicDBObject lastKey = null; // Lower boundary of the first min split
 
         for (Object aSplitData : splitData) {
             BasicDBObject currentKey = (BasicDBObject) aSplitData;
-            MongoInputSplit split = createSplitFromBounds(lastKey, currentKey);
-            returnVal.add(split);
+            returnVal.add(createSplitFromBounds(lastKey, currentKey));
             lastKey = currentKey;
         }
 
